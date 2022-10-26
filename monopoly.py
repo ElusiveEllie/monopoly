@@ -9,7 +9,6 @@ class Player:
         self.token = player_token
         self.money = 1500
         self.properties = []
-        self.position = 0
         self.railroads_owned = 0
         self.utilities_owned = 0
         self.last_roll = 0
@@ -20,7 +19,7 @@ class Player:
         """Return description of player"""
         return f'''\
             This player, {self.name}, is playing as the {self.token}. 
-            {self.name} has ${self.money}, is currently on {board.layout[self.position]}, and owns these properties: 
+            {self.name} has ${self.money}, is currently on {board.player_positions[board.player_list.index(self)]}, and owns these properties: 
             {self.properties}
             '''
 
@@ -34,21 +33,6 @@ class Player:
         else:
             print(f"{self.name} rolled a {self.last_roll}! ({die1} + {die2})")
         return (die1, die2, self.last_roll)
-    
-    def update_position(self):
-        """Check the dice roll and update position on the board."""
-        die1, die2, spaces_to_move = self.roll_dice()
-        while spaces_to_move > 0:
-            self.position += 1
-            spaces_to_move -= 1
-            # Wrap around board
-            if self.position >= 40:
-                self.position = 0
-                self.money += 200
-                print(f"{self.name} passed Go and collects $200.")
-        if die1 != die2:
-            self.is_turn = False
-        return
     
     def take_turn(self):
         """Roll dice and repeat if doubles are achieved, unless it's done three times in a row"""
@@ -64,7 +48,7 @@ class Player:
                 self.position = 10
                 self.in_jail = True
                 self.is_turn = False
-
+    
 
 class Property:
     def __init__(self, name, cost, house_cost, rent, mortgage):
@@ -217,17 +201,29 @@ class Board():
     def update_position(self, player):
         """Move players around board"""
         player_index = self.player_list.index(player)
-        die1, die2, spaces_to_move = player.roll_dice()
-        while spaces_to_move > 0:
-            self.player_positions[player_index] += 1
-            spaces_to_move -= 1
-            # Wrap around board
-            if self.player_positions[player_index] >= self.length:
-                self.position = 0
-                player.money += 200
-                print(f"{self.name} passed Go and collects $200.")
-        if die1 != die2:
-            player.is_turn = False
+        die1 = 0
+        die2 = 0
+        turn_count = 0
+        while die1 == die2:
+            die1, die2, spaces_to_move = player.roll_dice()
+            turn_count += 1
+            if turn_count == 3 and die1 == die2:
+                print(f"{player.name} rolled doubles three times in a row! {player.name} goes to Jail!")
+                self.player_positions[player_index] = self.layout.index("Jail")
+                print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]} and is in Jail.")
+                return
+            while spaces_to_move > 0:
+                self.player_positions[player_index] += 1
+                spaces_to_move -= 1
+                # Wrap around board
+                if self.player_positions[player_index] >= self.length:
+                    self.player_positions[player_index] = 0
+                    player.money += 200
+                    print(f"{player.name} passed Go and collects $200.")
+            print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]}")
+            if die1 == die2:
+                print(f"{player.name} rolled doubles! Roll again!")
+                input()
         return
 
 
@@ -320,3 +316,18 @@ while first_turn != board.player_list[0]:
 print(f'{board.player_list[0].name} goes first.')
 board.player_list[0].is_turn = True
 
+game_active = True
+
+while game_active:
+    for player in board.player_list:
+        print(f"{player.name}'s turn! Press enter to roll dice.")
+        input()
+        board.update_position(player)
+    print(f"Would you like to end the game?")
+    choice = str(input()).title()
+    while choice != "No":
+        if choice == "Yes":
+            game_active = False
+            break
+        print("Please enter Yes or No.")
+        choice = str(input()).title()
