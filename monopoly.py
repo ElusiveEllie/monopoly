@@ -1,4 +1,5 @@
 from random import randint
+from random import shuffle
 from re import L
 import textwrap
 
@@ -11,6 +12,8 @@ class Player:
         self.properties = []
         self.railroads_owned = 0
         self.utilities_owned = 0
+        self.die1 = 0
+        self.die2 = 0
         self.last_roll = 0
         self.in_jail = False
         self.is_turn = False
@@ -25,14 +28,14 @@ class Player:
 
     def roll_dice(self):
         """Roll two dice and return the results"""
-        die1 = randint(1,6)
-        die2 = randint(1,6)
-        self.last_roll = die1 + die2
+        self.die1 = randint(1,6)
+        self.die2 = randint(1,6)
+        self.last_roll = self.die1 + self.die2
         if self.last_roll == 8 or self.last_roll == 11:
-            print(f"{self.name} rolled an {self.last_roll}! ({die1} + {die2})")
+            print(f"{self.name} rolled an {self.last_roll}! ({self.die1} + {self.die2})")
         else:
-            print(f"{self.name} rolled a {self.last_roll}! ({die1} + {die2})")
-        return (die1, die2, self.last_roll)
+            print(f"{self.name} rolled a {self.last_roll}! ({self.die1} + {self.die2})")
+        return (self.die1, self.die2, self.last_roll)
     
     def take_turn(self):
         """Roll dice and repeat if doubles are achieved, unless it's done three times in a row"""
@@ -49,7 +52,6 @@ class Player:
                 self.in_jail = True
                 self.is_turn = False
     
-
 class Property:
     def __init__(self, name, cost, house_cost, rent, mortgage):
         """Create property from input"""
@@ -198,33 +200,92 @@ class Board():
         self.player_positions = []
         self.player_turn = 0
 
-    def update_position(self, player):
+    def update_position(self, player, die1 = 0, die2 = 0, spaces_to_move = 0):
         """Move players around board"""
         player_index = self.player_list.index(player)
-        die1 = 0
-        die2 = 0
-        turn_count = 0
-        while die1 == die2:
-            die1, die2, spaces_to_move = player.roll_dice()
-            turn_count += 1
-            if turn_count == 3 and die1 == die2:
-                print(f"{player.name} rolled doubles three times in a row! {player.name} goes to Jail!")
-                self.player_positions[player_index] = self.layout.index("Jail")
-                print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]} and is in Jail.")
-                return
-            while spaces_to_move > 0:
-                self.player_positions[player_index] += 1
-                spaces_to_move -= 1
-                # Wrap around board
-                if self.player_positions[player_index] >= self.length:
-                    self.player_positions[player_index] = 0
-                    player.money += 200
-                    print(f"{player.name} passed Go and collects $200.")
-            print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]}")
-            if die1 == die2:
-                print(f"{player.name} rolled doubles! Roll again!")
-                input()
+        while spaces_to_move > 0:
+            self.player_positions[player_index] += 1
+            spaces_to_move -= 1
+            # Wrap around board
+            if self.player_positions[player_index] >= self.length:
+                self.player_positions[player_index] = 0
+                player.money += 200
+                print(f"{player.name} passed Go and collects $200.")
         return
+
+    def go_to_jail(self, player):
+        self.player_positions[self.player_list.index(player)] = self.layout.index("Jail")
+        print(f"{player.name} is on space {self.player_positions[self.player_list.index(player)]} and is in Jail.")
+        player.in_jail = True
+
+class Chance:
+    def __init__(self, name, card_list):
+        self.name = name
+        self.card_list = card_list
+        self.active_card = {}
+        shuffle(self.card_list)
+        self.jailbreak = 0
+    
+    def draw_card(self, player, board):
+        self.active_card = self.card_list.pop(0)
+        print(f"{player} draws a card!")
+        print(f'{self.active_card["text"]}')
+        if self.active_card["type"] == "movement":
+            self.movement_coard(player, board)
+        elif self.active_card["type"] == "payment":
+            self.payment_card(player)
+        elif self.active_card["type"] == "collection":
+            self.collection_card(player, board)
+        elif self.active_card["type"] == "jail":
+            self.jail_card(player, board)
+        elif self.active_card["type"] == "jailbreak":
+            self.jailbreak_card(player)
+        elif self.active_card["type"] == "utility":
+            self.utility_card(player, board)
+
+    def movement_card(self, player, board):
+        current_space = board.player_positions[board.player_list.index(player)]
+        target_space = board.layout.index(self.active_card["target"])
+        spaces_to_move = 0
+        if target_space > current_space:
+            spaces_to_move = target_space - current_space
+        else:
+            spaces_to_move = board.length - (current_space - target_space)
+        board.update_position(player = player, spaces_to_move = spaces_to_move)
+        self.card_list.append(self.active_card)
+        self.active_card = {}
+    
+    def payment_card(self, player):
+        player.money += self.active_card["amount"]
+        self.card_list.append(self.active_card)
+        self.active_card = {}
+    
+    def collection_card(self, active_player, board):
+        for player in board.player_list:
+            player.money -= self.active_card["amount"]
+            active_player += self.active_card["amount"]
+        self.card_list.append(self.active_card)
+        self.active_card = {}
+    
+    def jail_card(self, player, board):
+        board.go_to_jail(player)
+        self.card_list.append(self.active_card)
+        self.active_card = {}
+    
+    def jailbreak_card(self, player):
+        self.jailbreak = self.active_card
+        self.jailbreak["owner"] = player
+        self.active_card = {}
+    
+    def utility_card(self, player, board):
+        is_utility = False
+        while not is_utility:
+            board.update_position(player = player, spaces_to_move = 1)
+            if type(board.layout[board.player_positions[board.player_list.index(player)]]) == Utility:
+                is_utility = True
+        if board.layout[board.player_positions[board.player_list.index(player)]].is_owned:
+            die1, die2, total = player.roll_dice()
+
 
 
 mediterranean_ave = Property(name="Mediterranean Avenue", cost=60, house_cost=50, rent=[2, 10, 30, 90, 160, 250], mortgage=30)
@@ -258,6 +319,44 @@ short_line_rr = Railroad(name="Short Line")
 electric_company = Utility(name="Electric Company")
 water_works = Utility(name="Water Works")
 
+chance = Chance("Chance", [
+    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": "Go"},
+    {"text": 'Advance to Illinois Ave.', "type": "movement", "target": illinois_ave},
+    {"text": 'Advance to St. Charles Place.', "type": "movement", "target": st_charles_place},
+    {"text": 'Advance token to the nearest Utility. \nIf unowned, you may buy it from the Bank. \nIf owned, throw dice and pay owner a total 10 times the amount thrown.', "type": "utility"},
+    {"text": 'Advance token to the nearest Railroad and pay the owner Twice the Rental to which they are entitled. \nIf Railroad is UNOWNED you may buy it from the Bank.', "type": "railroad"},
+    {"text": 'Advance token to the nearest Railroad and pay the owner Twice the Rental to which they are entitled. \nIf Railroad is UNOWNED you may buy it from the Bank.', "type": "railroad"},
+    {"text": 'Go Back 3 Spaces.', "type": "movement", "target": "position - 3"},
+    {"text": 'Take a trip to Reading Railroad. \nIf you pass Go, collect $200.', "type": "movement", "target": reading_rr},
+    {"text": 'Take a walk on the Boardwalk. \nAdvance token to Boardwalk.', "type": "movement", "target": boardwalk},
+    {"text": 'Go to Jail. Go directly to Jail. \nDo not pass GO, do not collect $200.', "type": "jail"},
+    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak", "owner": 0},
+    {"text": 'Bank pays you a dividend of $50.', "type": "payment", "amount": 50},
+    {"text": 'Your building loan matures. \nCollect $150.', "type": "payment", "amount": 150},
+    {"text": 'Pay school tax of $150.', "type": "payment", "amount": -150},
+    {"text": 'Make general repairs on all your property: \nFor each house pay $25, \nFor each Hotel $100.', "type": "house", "amount": [25, 100]},
+    {"text": 'You have been elected Chairman of the Board. Pay each player $50.', "type": "collection", "amount": -50}
+    ])
+
+community_chest = Chance("Community Chest", [
+    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": "Go"},
+    {"text": 'Bank error in your favor, collect $200.', "type": "payment", "amount": 200},
+    {"text": 'Doctor\'s fees, pay $50.', "type": "payment", "amount": -50},
+    {"text": 'From sale of stock you get $50.', "type": "payment", "amount": 50},
+    {"text": 'Grand Opera Opening. Collect $50 from every player for opening night seats.', "type": "collection", "amount": 50},
+    {"text": 'Holiday fund matures. Receive $100.', "type": "payment", "amount": 100},
+    {"text": 'Income tax refund. Collect $20.', "type": "payment", "amount": 20},
+    {"text": 'It\'s your birthday. Collect $10 from every player.', "type": "collection", "amount": 10},
+    {"text": 'Life insurance matures. Collect $100.', "type": "payment", "amount": 100},
+    {"text": 'Hospital fees. Pay $100.', "type": "payment", "amount": -100},
+    {"text": 'Receive $25 consultancy fee.', "type": "payment", "amount": 25},
+    {"text": 'You have won second prize in a beauty contest, collect $10.', "type": "payment", "amount": 10},
+    {"text": 'You inherit $100.', "type": "payment", "amount": 100},
+    {"text": 'Go to Jail. Go directly to Jail. \nDo not pass GO, do not collect $200.', "type": "jail"},
+    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak"},
+    {"text": 'You are assessed for street repairs: \nPay $40 per house and $115 per hotel you own.', "type": "house", "amount": [40, 115]}
+])
+
 brown_group = [mediterranean_ave, baltic_ave]
 light_blue_group = [oriental_ave, vermont_ave, connecticut_ave]
 pink_group = [st_charles_place, states_ave, virginia_ave]
@@ -267,10 +366,10 @@ yellow_group = [atlantic_ave, ventnor_ave, marvin_gardens]
 green_group = [pacific_ave, north_carolina_ave, pennsylvania_ave]
 dark_blue_group = [park_place, boardwalk]
 
-board = Board(["Go", mediterranean_ave, "Community Chest", baltic_ave, "Income Tax", reading_rr, oriental_ave, "Chance", vermont_ave, connecticut_ave, 
-        "Jail", st_charles_place, electric_company, states_ave, virginia_ave, pennsylvania_rr, st_james_place, "Community Chest", tennessee_ave, new_york_ave, 
-        "Free Parking", kentucky_ave, "Chance", indiana_ave, illinois_ave, b_and_o_rr, atlantic_ave, ventnor_ave, water_works, marvin_gardens, 
-        "Go To Jail", pacific_ave, north_carolina_ave, "Community Chest", pennsylvania_ave, short_line_rr, "Chance", park_place, "Luxury Tax", boardwalk])
+board = Board(["Go", mediterranean_ave, community_chest, baltic_ave, "Income Tax", reading_rr, oriental_ave, chance, vermont_ave, connecticut_ave, 
+        "Jail", st_charles_place, electric_company, states_ave, virginia_ave, pennsylvania_rr, st_james_place, community_chest, tennessee_ave, new_york_ave, 
+        "Free Parking", kentucky_ave, chance, indiana_ave, illinois_ave, b_and_o_rr, atlantic_ave, ventnor_ave, water_works, marvin_gardens, 
+        "Go To Jail", pacific_ave, north_carolina_ave, community_chest, pennsylvania_ave, short_line_rr, chance, park_place, "Luxury Tax", boardwalk])
 
 player_count = 0
 while player_count < 2 or player_count > 8:
@@ -320,9 +419,23 @@ game_active = True
 
 while game_active:
     for player in board.player_list:
+        chance.utility_card(player, board)
+        turn_count = 0
+        player.die1 = 0
+        player.die2 = 0
         print(f"{player.name}'s turn! Press enter to roll dice.")
-        input()
-        board.update_position(player)
+        while (player.die1 == player.die2):
+            input()
+            roll1, roll2, movement = player.roll_dice()
+            turn_count += 1
+            if turn_count == 3 and roll1 == roll2:
+                print(f"{player.name} rolled doubles three times in a row! {player.name} goes to Jail!")
+                board.go_to_jail(player)
+                break
+            board.update_position(player, roll1, roll2, movement)
+            print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]}")
+            if player.die1 == player.die2:
+                print(f"{player.name} rolled doubles! Roll again!")
     print(f"Would you like to end the game?")
     choice = str(input()).title()
     while choice != "No":
@@ -331,3 +444,4 @@ while game_active:
             break
         print("Please enter Yes or No.")
         choice = str(input()).title()
+
