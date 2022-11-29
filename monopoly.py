@@ -22,10 +22,9 @@ class Player:
         """Return description of player"""
         return f'''\
             This player, {self.name}, is playing as the {self.token}. 
-            {self.name} has ${self.money}, is currently on {board.player_positions[board.player_list.index(self)]}, and owns these properties: 
+            {self.name} has ${self.money}, is currently on {monopoly_board.player_positions[monopoly_board.player_list.index(self)]}, and owns these properties: 
             {self.properties}
             '''
-
     def roll_dice(self):
         """Roll two dice and return the results"""
         self.die1 = randint(1,6)
@@ -87,8 +86,11 @@ class Property:
             print(f"You don't have enough money to afford this property.")
             return
         else:
+            print(f"{player.name} purchases {self.name} for ${self.cost}.")
+            player.money -= self.cost
             player.properties.append(self)
             self.is_owned = True
+            self.owner = player
 
     def buy_house(self, player):
         """Place houses on property"""
@@ -101,12 +103,21 @@ class Property:
             else:
                 print(f"This property already has a hotel.")
         
-    def charge_rent(self, owner, renter):
+    def charge_rent(self, renter):
         """Take money from player who lands on owned property"""
-        owner.money += self.rent[self.houses]
+        self.owner.money += self.rent[self.houses]
         renter.money -= self.rent[self.houses]
-        print(f"You landed on {self.name}. Rent with {self.houses} houses costs ${self.rent[self.houses]}.")
-        print(f"{renter.name} paid {owner.name} ${self.rent[self.houses]}.")
+        print(f"{renter.name} landed on {self.name}. Rent with {self.houses} houses costs ${self.rent[self.houses]}.")
+        print(f"{renter.name} paid {self.owner.name} ${self.rent[self.houses]}.")
+
+    def interact(self, player, board):
+        if self.is_owned == False:
+            self.buy_property(player)
+        else:
+            if self.owner == player:
+                print("You own this property.")
+                return
+            self.charge_rent(player)
 
 class Railroad():
     def __init__(self, name):
@@ -136,16 +147,30 @@ class Railroad():
             print(f"You don't have enough money to afford this railroad.")
             return
         else:
+            print(f"{player.name} purchases {self.name} for ${self.cost}.")
+            player.money -= self.cost
             player.properties.append(self)
             player.railroads_owned += 1
             self.is_owned = True
+            self.owner = player
 
-    def charge_rent(self, owner, renter):
+    def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned railroad"""
-        owner.money += self.rent[owner.railroads_owned-1]
-        renter.money -= self.rent[owner.railroads_owned-1]
-        print(f"You landed on {self.name}. Rent with {owner.railroads_owned} railroads owned costs ${self.rent[owner.railroads_owned-1]}.")
-        print(f"{renter.name} paid {owner.name} ${self.rent[owner.railroads_owned-1]}.")
+        if chance_card == True:
+            self.owner.money += self.rent[self.owner.railroads_owned-1] * 2
+            renter.money -= self.rent[self.owner.railroads_owned-1] * 2
+            print(f"You landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}, times 2, for a total of ${self.rent[self.owner.railroads_owned-1] * 2}.")
+            return
+        self.owner.money += self.rent[self.owner.railroads_owned-1]
+        renter.money -= self.rent[self.owner.railroads_owned-1]
+        print(f"{renter.name} landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}.")
+        print(f"{renter.name} paid {self.owner.name} ${self.rent[self.owner.railroads_owned-1]}.")
+
+    def interact(self, player, board):
+        if self.is_owned == False:
+            self.buy_property(player)
+        else:
+            self.charge_rent(player)
 
 class Utility():
     def __init__(self, name):
@@ -175,21 +200,33 @@ class Utility():
             print(f"You don't have enough money to afford this railroad.")
             return
         else:
+            print(f"{player.name} purchases {self.name} for ${self.cost}.")
+            player.money -= self.cost
             player.properties.append(self)
             player.utilities_owned += 1
             self.is_owned = True
+            self.owner = player
     
-    def charge_rent(self, owner, renter):
+    def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned utility"""
-        if owner.utilities_owned == 1:
-            self.rent = renter.last_roll * 4
-            print(f"You landed on {self.name}. Rent with {owner.utilities_owned} utilities owned costs 4 * the last roll, {renter.last_roll}, ${self.rent}.")
-        elif owner.utilities_owned == 2:
+        if chance_card == True:
             self.rent = renter.last_roll * 10
-            print(f"You landed on {self.name}. Rent with {owner.utilities_owned} utilities owned costs 10 * the last roll, {renter.last_roll}, ${self.rent}.")
-        owner.money += self.rent
+            print(f"{renter.name} landed on {self.name}. Rent costs 10 * your roll, {renter.last_roll}, ${self.rent}.")
+        elif self.owner.utilities_owned == 1:
+            self.rent = renter.last_roll * 4
+            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.utilities_owned} utilities owned costs 4 * the last roll, {renter.last_roll}, ${self.rent}.")
+        elif self.owner.utilities_owned == 2:
+            self.rent = renter.last_roll * 10
+            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.utilities_owned} utilities owned costs 10 * the last roll, {renter.last_roll}, ${self.rent}.")
+        self.owner.money += self.rent
         renter.money -= self.rent
-        print(f"{renter.name} paid {owner.name} ${self.rent}.")
+        print(f"{renter.name} paid {self.owner.name} ${self.rent}.")
+    
+    def interact(self, player, board):
+        if self.is_owned == False:
+            self.buy_property(player)
+        else:
+            self.charge_rent(player)
 
 class Board():
     def __init__(self, layout):
@@ -214,7 +251,7 @@ class Board():
         return
 
     def go_to_jail(self, player):
-        self.player_positions[self.player_list.index(player)] = self.layout.index("Jail")
+        self.player_positions[self.player_list.index(player)] = self.layout.index(jail)
         print(f"{player.name} is on space {self.player_positions[self.player_list.index(player)]} and is in Jail.")
         player.in_jail = True
 
@@ -228,10 +265,10 @@ class Chance:
     
     def draw_card(self, player, board):
         self.active_card = self.card_list.pop(0)
-        print(f"{player} draws a card!")
+        print(f"{player.name} draws a card!")
         print(f'{self.active_card["text"]}')
         if self.active_card["type"] == "movement":
-            self.movement_coard(player, board)
+            self.movement_card(player, board)
         elif self.active_card["type"] == "payment":
             self.payment_card(player)
         elif self.active_card["type"] == "collection":
@@ -242,6 +279,10 @@ class Chance:
             self.jailbreak_card(player)
         elif self.active_card["type"] == "utility":
             self.utility_card(player, board)
+        elif self.active_card["type"] == "railroad":
+            self.railroad_card(player, board)
+        elif self.active_card["type"] == "x_spaces":
+            self.move_x_spaces(player, board)
 
     def movement_card(self, player, board):
         current_space = board.player_positions[board.player_list.index(player)]
@@ -252,6 +293,19 @@ class Chance:
         else:
             spaces_to_move = board.length - (current_space - target_space)
         board.update_position(player = player, spaces_to_move = spaces_to_move)
+        current_position = board.player_positions[board.player_list.index(player)]
+        print(f"{player.name} landed on space {current_position}, {board.layout[current_position].name}.")
+        board.layout[current_position].interact(player = player, board = board)
+        self.card_list.append(self.active_card)
+        self.active_card = {}
+    
+    def move_x_spaces(self, player, board):
+        current_space = board.player_positions[board.player_list.index(player)]
+        spaces_to_move = current_space + self.active_card["target"]
+        board.update_position(player = player, spaces_to_move = spaces_to_move)
+        current_position = board.player_positions[board.player_list.index(player)]
+        print(f"{player.name} landed on space {current_position}, {board.layout[current_position].name}.")
+        board.layout[current_position].interact(player = player, board = board)
         self.card_list.append(self.active_card)
         self.active_card = {}
     
@@ -263,7 +317,7 @@ class Chance:
     def collection_card(self, active_player, board):
         for player in board.player_list:
             player.money -= self.active_card["amount"]
-            active_player += self.active_card["amount"]
+            active_player.money += self.active_card["amount"]
         self.card_list.append(self.active_card)
         self.active_card = {}
     
@@ -283,10 +337,57 @@ class Chance:
             board.update_position(player = player, spaces_to_move = 1)
             if type(board.layout[board.player_positions[board.player_list.index(player)]]) == Utility:
                 is_utility = True
-        if board.layout[board.player_positions[board.player_list.index(player)]].is_owned:
-            die1, die2, total = player.roll_dice()
+        current_position = board.player_positions[board.player_list.index(player)]
+        active_utility = board.layout[board.player_positions[board.player_list.index(player)]]
+        if active_utility.is_owned:
+            temp_die1 = player.die1
+            temp_die2 = player.die2
+            temp_last_roll = player.last_roll
+            player.roll_dice()
+            active_utility.charge_rent(renter = player, chance_card = True)
+            player.die1 = temp_die1
+            player.die2 = temp_die2
+            player.last_roll = temp_last_roll
+        else:
+            print(f"{player.name} landed on space {current_position}, {board.layout[current_position].name}.")
+            board.layout[current_position].interact(player = player, board = board)
+    
+    def railroad_card(self, player, board):
+        is_railroad = False
+        while not is_railroad:
+            board.update_position(player = player, spaces_to_move = 1)
+            if type(board.layout[board.player_positions[board.player_list.index(player)]]) == Railroad:
+                is_railroad = True
+        current_position = board.player_positions[board.player_list.index(player)]
+        active_railroad = board.layout[board.player_positions[board.player_list.index(player)]]
+        if active_railroad.is_owned:
+            active_railroad.charge_rent(renter = player, chance_card = True)
+        else:
+            print(f"{player.name} landed on space {current_position}, {monopoly_board.layout[current_position].name}.")
+            monopoly_board.layout[current_position].interact(player = player, board = monopoly_board)
+    
+    def interact(self, player, board):
+        self.draw_card(player = player, board = board)
 
-
+class Miscellaneous:
+    def __init__ (self, name):
+        self.name = name
+    
+    def interact (self, player, board):
+        if self.name == "Go":
+            return
+        elif self.name == "Income Tax":
+            print(f"{player.name} pays Income Tax of $200.")
+            player.money -= 200
+        elif self.name == "Jail":
+            print(f"Just Visiting!")
+        elif self.name == "Free Parking":
+            print(f"Nothing interesting happens.")
+        elif self.name == "Go To Jail":
+            board.go_to_jail(player)
+        elif self.name == "Luxury Tax":
+            print(f"{player.name} pays Luxury Tax of $75.")
+            player.money -= 75
 
 mediterranean_ave = Property(name="Mediterranean Avenue", cost=60, house_cost=50, rent=[2, 10, 30, 90, 160, 250], mortgage=30)
 baltic_ave = Property(name="Baltic Avenue", cost=60, house_cost=50, rent=[4, 20, 60, 180, 320, 450], mortgage=30)
@@ -319,14 +420,21 @@ short_line_rr = Railroad(name="Short Line")
 electric_company = Utility(name="Electric Company")
 water_works = Utility(name="Water Works")
 
+go_space = Miscellaneous("Go")
+income_tax = Miscellaneous("Income Tax")
+jail = Miscellaneous("Jail")
+free_parking = Miscellaneous("Free Parking")
+go_to_jail = Miscellaneous("Go To Jail")
+luxury_tax = Miscellaneous("Luxury Tax")
+
 chance = Chance("Chance", [
-    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": "Go"},
+    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": go_space},
     {"text": 'Advance to Illinois Ave.', "type": "movement", "target": illinois_ave},
     {"text": 'Advance to St. Charles Place.', "type": "movement", "target": st_charles_place},
     {"text": 'Advance token to the nearest Utility. \nIf unowned, you may buy it from the Bank. \nIf owned, throw dice and pay owner a total 10 times the amount thrown.', "type": "utility"},
     {"text": 'Advance token to the nearest Railroad and pay the owner Twice the Rental to which they are entitled. \nIf Railroad is UNOWNED you may buy it from the Bank.', "type": "railroad"},
     {"text": 'Advance token to the nearest Railroad and pay the owner Twice the Rental to which they are entitled. \nIf Railroad is UNOWNED you may buy it from the Bank.', "type": "railroad"},
-    {"text": 'Go Back 3 Spaces.', "type": "movement", "target": "position - 3"},
+    {"text": 'Go Back 3 Spaces.', "type": "x_spaces", "target": -3},
     {"text": 'Take a trip to Reading Railroad. \nIf you pass Go, collect $200.', "type": "movement", "target": reading_rr},
     {"text": 'Take a walk on the Boardwalk. \nAdvance token to Boardwalk.', "type": "movement", "target": boardwalk},
     {"text": 'Go to Jail. Go directly to Jail. \nDo not pass GO, do not collect $200.', "type": "jail"},
@@ -339,7 +447,7 @@ chance = Chance("Chance", [
     ])
 
 community_chest = Chance("Community Chest", [
-    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": "Go"},
+    {"text": 'Advance to "Go". \n(Collect $200)', "type": "movement", "target": go_space},
     {"text": 'Bank error in your favor, collect $200.', "type": "payment", "amount": 200},
     {"text": 'Doctor\'s fees, pay $50.', "type": "payment", "amount": -50},
     {"text": 'From sale of stock you get $50.', "type": "payment", "amount": 50},
@@ -366,10 +474,25 @@ yellow_group = [atlantic_ave, ventnor_ave, marvin_gardens]
 green_group = [pacific_ave, north_carolina_ave, pennsylvania_ave]
 dark_blue_group = [park_place, boardwalk]
 
-board = Board(["Go", mediterranean_ave, community_chest, baltic_ave, "Income Tax", reading_rr, oriental_ave, chance, vermont_ave, connecticut_ave, 
-        "Jail", st_charles_place, electric_company, states_ave, virginia_ave, pennsylvania_rr, st_james_place, community_chest, tennessee_ave, new_york_ave, 
-        "Free Parking", kentucky_ave, chance, indiana_ave, illinois_ave, b_and_o_rr, atlantic_ave, ventnor_ave, water_works, marvin_gardens, 
-        "Go To Jail", pacific_ave, north_carolina_ave, community_chest, pennsylvania_ave, short_line_rr, chance, park_place, "Luxury Tax", boardwalk])
+monopoly_board = Board([go_space, mediterranean_ave, community_chest, baltic_ave, income_tax, reading_rr, oriental_ave, chance, vermont_ave, connecticut_ave, 
+        jail, st_charles_place, electric_company, states_ave, virginia_ave, pennsylvania_rr, st_james_place, community_chest, tennessee_ave, new_york_ave, 
+        free_parking, kentucky_ave, chance, indiana_ave, illinois_ave, b_and_o_rr, atlantic_ave, ventnor_ave, water_works, marvin_gardens, 
+        go_to_jail, pacific_ave, north_carolina_ave, community_chest, pennsylvania_ave, short_line_rr, chance, park_place, luxury_tax, boardwalk])
+
+
+
+
+
+# This space intentionally left blank for testing before running the game
+
+
+
+
+
+
+
+
+
 
 player_count = 0
 while player_count < 2 or player_count > 8:
@@ -399,27 +522,26 @@ for i in range(player_count):
         else:
             print("That token is not available!")
     
-    board.player_list.append(Player(player_choices[0], player_choices[1]))
-    board.player_positions.append(0)
+    monopoly_board.player_list.append(Player(player_choices[0], player_choices[1]))
+    monopoly_board.player_positions.append(0)
 
 first_roll = 0
 first_turn = 0
 
-for player in board.player_list:
+for player in monopoly_board.player_list:
     player.roll_dice()
     if player.last_roll > first_roll:
         first_turn = player
         first_roll = player.last_roll
-while first_turn != board.player_list[0]:
-    board.player_list.append(board.player_list.pop(0))
-print(f'{board.player_list[0].name} goes first.')
-board.player_list[0].is_turn = True
+while first_turn != monopoly_board.player_list[0]:
+    monopoly_board.player_list.append(monopoly_board.player_list.pop(0))
+print(f'{monopoly_board.player_list[0].name} goes first.')
+monopoly_board.player_list[0].is_turn = True
 
 game_active = True
 
 while game_active:
-    for player in board.player_list:
-        chance.utility_card(player, board)
+    for player in monopoly_board.player_list:
         turn_count = 0
         player.die1 = 0
         player.die2 = 0
@@ -430,12 +552,15 @@ while game_active:
             turn_count += 1
             if turn_count == 3 and roll1 == roll2:
                 print(f"{player.name} rolled doubles three times in a row! {player.name} goes to Jail!")
-                board.go_to_jail(player)
+                monopoly_board.go_to_jail(player)
                 break
-            board.update_position(player, roll1, roll2, movement)
-            print(f"{player.name} is on space {board.player_positions[board.player_list.index(player)]}")
+            monopoly_board.update_position(player, roll1, roll2, movement)
+            current_position = monopoly_board.player_positions[monopoly_board.player_list.index(player)]
+            print(f"{player.name} landed on space {current_position}, {monopoly_board.layout[current_position].name}.")
+            monopoly_board.layout[current_position].interact(player = player, board = monopoly_board)
             if player.die1 == player.die2:
                 print(f"{player.name} rolled doubles! Roll again!")
+        print(f"{player.name} ends their turn with ${player.money}.") 
     print(f"Would you like to end the game?")
     choice = str(input()).title()
     while choice != "No":
