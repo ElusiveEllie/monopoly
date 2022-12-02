@@ -102,41 +102,46 @@ class Property:
         while auction_list[0] != player:
             auction_list.append(auction_list.pop(0))
         bid = 0
+        last_bidder = ""
         while len(auction_list) > 1:
             for entry in auction_list:
-                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
-                print("Enter 0 to drop out of the auction.")
-                entry_bid = ""
-                valid_entry = False
-                while type(entry_bid) != int:
-                    try:
-                        entry_bid = int(input())
-                    except:
-                        print("Please input a number.")
-                while not valid_entry:
-                    if entry_bid == 0:
-                        print(f"{entry.name} dropped out of the auction.")
-                        auction_list.pop(auction_list.index(entry))
-                        valid_entry = True
-                        continue
-                    elif entry_bid <= entry.money and entry_bid > bid:
-                        valid_entry = True
-                        bid = entry_bid
-                        continue
-                    elif entry_bid > entry.money:
-                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
-                        print(f"Otherwise, enter 0 to drop out of the auction.")
-                    elif entry_bid < bid:
-                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                if last_bidder == entry:
+                    continue
+                else:
+                    print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                    print("Enter 0 to drop out of the auction.")
                     entry_bid = ""
+                    valid_entry = False
                     while type(entry_bid) != int:
                         try:
                             entry_bid = int(input())
                         except:
                             print("Please input a number.")
+                    while not valid_entry:
+                        if entry_bid == 0:
+                            print(f"{entry.name} dropped out of the auction.")
+                            auction_list.pop(auction_list.index(entry))
+                            valid_entry = True
+                        elif entry_bid <= entry.money and entry_bid > bid:
+                            valid_entry = True
+                            bid = entry_bid
+                            last_bidder = entry
+                        elif entry_bid > entry.money:
+                            print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                            print(f"Otherwise, enter 0 to drop out of the auction.")
+                        elif entry_bid < bid:
+                            print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                        entry_bid = ""
+                        if not valid_entry:
+                            while type(entry_bid) != int:
+                                try:
+                                    entry_bid = int(input())
+                                except:
+                                    print("Please input a number.")
         print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
         auction_list[0].money -= bid
-        auction_list[0].properties.append(self)        
+        auction_list[0].properties.append(self)
+        self.is_owned = True
 
     def buy_house(self, player):
         """Place houses on property"""
@@ -217,41 +222,46 @@ class Railroad():
         while auction_list[0] != player:
             auction_list.append(auction_list.pop(0))
         bid = 0
+        last_bidder = ""
         while len(auction_list) > 1:
             for entry in auction_list:
-                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
-                print("Enter 0 to drop out of the auction.")
-                entry_bid = ""
-                valid_entry = False
-                while type(entry_bid) != int:
-                    try:
-                        entry_bid = int(input())
-                    except:
-                        print("Please input a number.")
-                while not valid_entry:
-                    if entry_bid == 0:
-                        print(f"{entry.name} dropped out of the auction.")
-                        auction_list.pop(auction_list.index(entry))
-                        valid_entry = True
-                        continue
-                    elif entry_bid <= entry.money and entry_bid > bid:
-                        valid_entry = True
-                        bid = entry_bid
-                        continue
-                    elif entry_bid > entry.money:
-                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
-                        print(f"Otherwise, enter 0 to drop out of the auction.")
-                    elif entry_bid < bid:
-                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                if last_bidder == entry:
+                    continue
+                else:
+                    print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                    print("Enter 0 to drop out of the auction.")
                     entry_bid = ""
+                    valid_entry = False
                     while type(entry_bid) != int:
                         try:
                             entry_bid = int(input())
                         except:
                             print("Please input a number.")
+                    while not valid_entry:
+                        if entry_bid == 0:
+                            print(f"{entry.name} dropped out of the auction.")
+                            auction_list.pop(auction_list.index(entry))
+                            valid_entry = True
+                        elif entry_bid <= entry.money and entry_bid > bid:
+                            valid_entry = True
+                            bid = entry_bid
+                            last_bidder = entry
+                        elif entry_bid > entry.money:
+                            print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                            print(f"Otherwise, enter 0 to drop out of the auction.")
+                        elif entry_bid < bid:
+                            print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                        entry_bid = ""
+                        if not valid_entry:
+                            while type(entry_bid) != int:
+                                try:
+                                    entry_bid = int(input())
+                                except:
+                                    print("Please input a number.")
         print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
         auction_list[0].money -= bid
         auction_list[0].properties.append(self)
+        self.is_owned = True
 
     def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned railroad"""
@@ -329,41 +339,46 @@ class Utility():
         while auction_list[0] != player:
             auction_list.append(auction_list.pop(0))
         bid = 0
+        last_bidder = ""
         while len(auction_list) > 1:
             for entry in auction_list:
-                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
-                print("Enter 0 to drop out of the auction.")
-                entry_bid = ""
-                valid_entry = False
-                while type(entry_bid) != int:
-                    try:
-                        entry_bid = int(input())
-                    except:
-                        print("Please input a number.")
-                while not valid_entry:
-                    if entry_bid == 0:
-                        print(f"{entry.name} dropped out of the auction.")
-                        auction_list.pop(auction_list.index(entry))
-                        valid_entry = True
-                        continue
-                    elif entry_bid <= entry.money and entry_bid > bid:
-                        valid_entry = True
-                        bid = entry_bid
-                        continue
-                    elif entry_bid > entry.money:
-                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
-                        print(f"Otherwise, enter 0 to drop out of the auction.")
-                    elif entry_bid < bid:
-                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                if last_bidder == entry:
+                    continue
+                else:
+                    print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                    print("Enter 0 to drop out of the auction.")
                     entry_bid = ""
+                    valid_entry = False
                     while type(entry_bid) != int:
                         try:
                             entry_bid = int(input())
                         except:
                             print("Please input a number.")
+                    while not valid_entry:
+                        if entry_bid == 0:
+                            print(f"{entry.name} dropped out of the auction.")
+                            auction_list.pop(auction_list.index(entry))
+                            valid_entry = True
+                        elif entry_bid <= entry.money and entry_bid > bid:
+                            valid_entry = True
+                            bid = entry_bid
+                            last_bidder = entry
+                        elif entry_bid > entry.money:
+                            print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                            print(f"Otherwise, enter 0 to drop out of the auction.")
+                        elif entry_bid < bid:
+                            print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                        entry_bid = ""
+                        if not valid_entry:
+                            while type(entry_bid) != int:
+                                try:
+                                    entry_bid = int(input())
+                                except:
+                                    print("Please input a number.")
         print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
         auction_list[0].money -= bid
         auction_list[0].properties.append(self)
+        self.is_owned = True
     
     def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned utility"""
