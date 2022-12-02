@@ -17,6 +17,7 @@ class Player:
         self.last_roll = 0
         self.in_jail = False
         self.is_turn = False
+        self.jail_time = 0
     
     def __repr__(self):
         """Return description of player"""
@@ -80,10 +81,12 @@ class Property:
             If a player owns ALL the lots in any Color-Group, the rent is Doubled on Unimproved Lots in that group.
             '''
     
-    def buy_property(self, player):
+    def buy_property(self, player, board):
         """Append property to player property list"""
         if player.money < self.cost:
             print(f"You don't have enough money to afford this property.")
+            print("Putting up property for auction.")
+            self.auction(player, board)
             return
         else:
             print(f"{player.name} purchases {self.name} for ${self.cost}.")
@@ -91,6 +94,49 @@ class Property:
             player.properties.append(self)
             self.is_owned = True
             self.owner = player
+
+    def auction(self, player, board):
+        auction_list = []
+        for entry in board.player_list:
+            auction_list.append(entry)
+        while auction_list[0] != player:
+            auction_list.append(auction_list.pop(0))
+        bid = 0
+        while len(auction_list) > 1:
+            for entry in auction_list:
+                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                print("Enter 0 to drop out of the auction.")
+                entry_bid = ""
+                valid_entry = False
+                while type(entry_bid) != int:
+                    try:
+                        entry_bid = int(input())
+                    except:
+                        print("Please input a number.")
+                while not valid_entry:
+                    if entry_bid == 0:
+                        print(f"{entry.name} dropped out of the auction.")
+                        auction_list.pop(auction_list.index(entry))
+                        valid_entry = True
+                        continue
+                    elif entry_bid <= entry.money and entry_bid > bid:
+                        valid_entry = True
+                        bid = entry_bid
+                        continue
+                    elif entry_bid > entry.money:
+                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                        print(f"Otherwise, enter 0 to drop out of the auction.")
+                    elif entry_bid < bid:
+                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                    entry_bid = ""
+                    while type(entry_bid) != int:
+                        try:
+                            entry_bid = int(input())
+                        except:
+                            print("Please input a number.")
+        print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
+        auction_list[0].money -= bid
+        auction_list[0].properties.append(self)        
 
     def buy_house(self, player):
         """Place houses on property"""
@@ -112,7 +158,15 @@ class Property:
 
     def interact(self, player, board):
         if self.is_owned == False:
-            self.buy_property(player)
+            print("Would you like to put this property up for auction?")
+            response = str(input()).title()
+            while response != "Yes" and response != "No":
+                print("Please enter Yes or No.")
+                response = str(input()).title()
+            if response == "Yes":
+                self.auction(player, board)
+            else:
+                self.buy_property(player, board)
         else:
             if self.owner == player:
                 print("You own this property.")
@@ -141,10 +195,12 @@ class Railroad():
             Mortgage Value: ${self.mortgage}
             '''
     
-    def buy_property(self, player):
+    def buy_property(self, player, board):
         """Append railroad to player property list"""
         if player.money < self.cost:
             print(f"You don't have enough money to afford this railroad.")
+            print("Putting up property for auction.")
+            self.auction(player, board)
             return
         else:
             print(f"{player.name} purchases {self.name} for ${self.cost}.")
@@ -154,21 +210,78 @@ class Railroad():
             self.is_owned = True
             self.owner = player
 
+    def auction(self, player, board):
+        auction_list = []
+        for entry in board.player_list:
+            auction_list.append(entry)
+        while auction_list[0] != player:
+            auction_list.append(auction_list.pop(0))
+        bid = 0
+        while len(auction_list) > 1:
+            for entry in auction_list:
+                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                print("Enter 0 to drop out of the auction.")
+                entry_bid = ""
+                valid_entry = False
+                while type(entry_bid) != int:
+                    try:
+                        entry_bid = int(input())
+                    except:
+                        print("Please input a number.")
+                while not valid_entry:
+                    if entry_bid == 0:
+                        print(f"{entry.name} dropped out of the auction.")
+                        auction_list.pop(auction_list.index(entry))
+                        valid_entry = True
+                        continue
+                    elif entry_bid <= entry.money and entry_bid > bid:
+                        valid_entry = True
+                        bid = entry_bid
+                        continue
+                    elif entry_bid > entry.money:
+                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                        print(f"Otherwise, enter 0 to drop out of the auction.")
+                    elif entry_bid < bid:
+                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                    entry_bid = ""
+                    while type(entry_bid) != int:
+                        try:
+                            entry_bid = int(input())
+                        except:
+                            print("Please input a number.")
+        print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
+        auction_list[0].money -= bid
+        auction_list[0].properties.append(self)
+
     def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned railroad"""
         if chance_card == True:
             self.owner.money += self.rent[self.owner.railroads_owned-1] * 2
             renter.money -= self.rent[self.owner.railroads_owned-1] * 2
-            print(f"You landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}, times 2, for a total of ${self.rent[self.owner.railroads_owned-1] * 2}.")
+            if self.owner.railroads_owned == 1:
+                print(f"You landed on {self.name}. Rent with {self.owner.railroads_owned} railroad owned costs ${self.rent[self.owner.railroads_owned-1]}, times 2, for a total of ${self.rent[self.owner.railroads_owned-1] * 2}.")
+            else:
+                print(f"You landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}, times 2, for a total of ${self.rent[self.owner.railroads_owned-1] * 2}.")
             return
         self.owner.money += self.rent[self.owner.railroads_owned-1]
         renter.money -= self.rent[self.owner.railroads_owned-1]
-        print(f"{renter.name} landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}.")
+        if self.owner.railroads_owned == 1:
+            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.railroads_owned} railroad owned costs ${self.rent[self.owner.railroads_owned-1]}.")
+        else:
+            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.railroads_owned} railroads owned costs ${self.rent[self.owner.railroads_owned-1]}.")
         print(f"{renter.name} paid {self.owner.name} ${self.rent[self.owner.railroads_owned-1]}.")
 
     def interact(self, player, board):
         if self.is_owned == False:
-            self.buy_property(player)
+            print("Would you like to put this property up for auction?")
+            response = str(input()).title()
+            while response != "Yes" and response != "No":
+                print("Please enter Yes or No.")
+                response = str(input()).title()
+            if response == "Yes":
+                self.auction(player, board)
+            else:
+                self.buy_property(player, board)
         else:
             self.charge_rent(player)
 
@@ -194,10 +307,12 @@ class Utility():
             Mortgage Value: ${self.mortgage}
             '''
     
-    def buy_property(self, player):
+    def buy_property(self, player, board):
         """Append utility to player property list"""
         if player.money < self.cost:
             print(f"You don't have enough money to afford this railroad.")
+            print("Putting up property for auction.")
+            self.auction(player, board)
             return
         else:
             print(f"{player.name} purchases {self.name} for ${self.cost}.")
@@ -206,6 +321,49 @@ class Utility():
             player.utilities_owned += 1
             self.is_owned = True
             self.owner = player
+
+    def auction(self, player, board):
+        auction_list = []
+        for entry in board.player_list:
+            auction_list.append(entry)
+        while auction_list[0] != player:
+            auction_list.append(auction_list.pop(0))
+        bid = 0
+        while len(auction_list) > 1:
+            for entry in auction_list:
+                print(f"{entry.name}, you have ${entry.money}. How much would you like to bid?")
+                print("Enter 0 to drop out of the auction.")
+                entry_bid = ""
+                valid_entry = False
+                while type(entry_bid) != int:
+                    try:
+                        entry_bid = int(input())
+                    except:
+                        print("Please input a number.")
+                while not valid_entry:
+                    if entry_bid == 0:
+                        print(f"{entry.name} dropped out of the auction.")
+                        auction_list.pop(auction_list.index(entry))
+                        valid_entry = True
+                        continue
+                    elif entry_bid <= entry.money and entry_bid > bid:
+                        valid_entry = True
+                        bid = entry_bid
+                        continue
+                    elif entry_bid > entry.money:
+                        print(f"You attempted to bid more than you own. Please enter a number higher than ${bid} but equal to or lower than the amount of money you have, ${entry.money}.")
+                        print(f"Otherwise, enter 0 to drop out of the auction.")
+                    elif entry_bid < bid:
+                        print(f"Entry was below current highest bid. Please enter a number higher than ${bid} or enter 0 to drop out of the auction.")
+                    entry_bid = ""
+                    while type(entry_bid) != int:
+                        try:
+                            entry_bid = int(input())
+                        except:
+                            print("Please input a number.")
+        print(f"Auction completed. {auction_list[0].name} purchases the property for ${bid}.")
+        auction_list[0].money -= bid
+        auction_list[0].properties.append(self)
     
     def charge_rent(self, renter, chance_card = False):
         """Take money from player who lands on owned utility"""
@@ -214,7 +372,7 @@ class Utility():
             print(f"{renter.name} landed on {self.name}. Rent costs 10 * your roll, {renter.last_roll}, ${self.rent}.")
         elif self.owner.utilities_owned == 1:
             self.rent = renter.last_roll * 4
-            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.utilities_owned} utilities owned costs 4 * the last roll, {renter.last_roll}, ${self.rent}.")
+            print(f"{renter.name} landed on {self.name}. Rent with {self.owner.utilities_owned} utility owned costs 4 * the last roll, {renter.last_roll}, ${self.rent}.")
         elif self.owner.utilities_owned == 2:
             self.rent = renter.last_roll * 10
             print(f"{renter.name} landed on {self.name}. Rent with {self.owner.utilities_owned} utilities owned costs 10 * the last roll, {renter.last_roll}, ${self.rent}.")
@@ -224,7 +382,15 @@ class Utility():
     
     def interact(self, player, board):
         if self.is_owned == False:
-            self.buy_property(player)
+            print("Would you like to put this property up for auction?")
+            response = str(input()).title()
+            while response != "Yes" and response != "No":
+                print("Please enter Yes or No.")
+                response = str(input()).title()
+            if response == "Yes":
+                self.auction(player, board)
+            else:
+                self.buy_property(player, board)
         else:
             self.charge_rent(player)
 
@@ -254,6 +420,8 @@ class Board():
         self.player_positions[self.player_list.index(player)] = self.layout.index(jail)
         print(f"{player.name} is on space {self.player_positions[self.player_list.index(player)]} and is in Jail.")
         player.in_jail = True
+        player.jail_time = 0
+        player.die1 = 0
 
 class Chance:
     def __init__(self, name, card_list):
@@ -261,7 +429,7 @@ class Chance:
         self.card_list = card_list
         self.active_card = {}
         shuffle(self.card_list)
-        self.jailbreak = 0
+        self.jailbreak = {"owner": "None"}
     
     def draw_card(self, player, board):
         self.active_card = self.card_list.pop(0)
@@ -300,10 +468,9 @@ class Chance:
         self.active_card = {}
     
     def move_x_spaces(self, player, board):
-        current_space = board.player_positions[board.player_list.index(player)]
-        spaces_to_move = current_space + self.active_card["target"]
-        board.update_position(player = player, spaces_to_move = spaces_to_move)
-        current_position = board.player_positions[board.player_list.index(player)]
+        player_index = board.player_list.index(player)
+        board.player_positions[player_index] += self.active_card["target"]
+        current_position = board.player_positions[player_index]
         print(f"{player.name} landed on space {current_position}, {board.layout[current_position].name}.")
         board.layout[current_position].interact(player = player, board = board)
         self.card_list.append(self.active_card)
@@ -438,7 +605,7 @@ chance = Chance("Chance", [
     {"text": 'Take a trip to Reading Railroad. \nIf you pass Go, collect $200.', "type": "movement", "target": reading_rr},
     {"text": 'Take a walk on the Boardwalk. \nAdvance token to Boardwalk.', "type": "movement", "target": boardwalk},
     {"text": 'Go to Jail. Go directly to Jail. \nDo not pass GO, do not collect $200.', "type": "jail"},
-    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak", "owner": 0},
+    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak", "owner": "None"},
     {"text": 'Bank pays you a dividend of $50.', "type": "payment", "amount": 50},
     {"text": 'Your building loan matures. \nCollect $150.', "type": "payment", "amount": 150},
     {"text": 'Pay school tax of $150.', "type": "payment", "amount": -150},
@@ -461,7 +628,7 @@ community_chest = Chance("Community Chest", [
     {"text": 'You have won second prize in a beauty contest, collect $10.', "type": "payment", "amount": 10},
     {"text": 'You inherit $100.', "type": "payment", "amount": 100},
     {"text": 'Go to Jail. Go directly to Jail. \nDo not pass GO, do not collect $200.', "type": "jail"},
-    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak"},
+    {"text": 'Get out of Jail Free. This card may be kept until needed or traded/sold.', "type": "jailbreak", "owner": "None"},
     {"text": 'You are assessed for street repairs: \nPay $40 per house and $115 per hotel you own.', "type": "house", "amount": [40, 115]}
 ])
 
@@ -484,7 +651,6 @@ monopoly_board = Board([go_space, mediterranean_ave, community_chest, baltic_ave
 
 
 # This space intentionally left blank for testing before running the game
-
 
 
 
@@ -545,8 +711,92 @@ while game_active:
         turn_count = 0
         player.die1 = 0
         player.die2 = 0
-        print(f"{player.name}'s turn! Press enter to roll dice.")
-        while (player.die1 == player.die2):
+
+
+# Jail interactions
+        if player.in_jail:
+            if player.jail_time < 2:
+                print(f"{player.name} is in Jail. Would you like to pay $50 to leave?")
+                response = str(input()).title()
+                while response != 'Yes' and response != 'No':
+                    print("Please enter Yes or No.")
+                    response = str(input()).title()
+                if response == "Yes":
+                    player.money -= 50
+                    player.in_jail = False
+                    player.jail_time = 0
+                    print("Press enter to roll dice.")
+                elif response == "No":
+                    print(f"Press enter to roll dice.")
+                    input()
+                    roll1, roll2, movement = player.roll_dice()
+                    if roll1 == roll2:
+                        print(f"{player.name} rolled doubles and is free from Jail!")
+                        player.in_jail = False
+                        player.jail_time = 0
+                        monopoly_board.update_position(player, roll1, roll2, movement)
+                        current_position = monopoly_board.player_positions[monopoly_board.player_list.index(player)]
+                        print(f"{player.name} landed on space {current_position}, {monopoly_board.layout[current_position].name}.")
+                        monopoly_board.layout[current_position].interact(player = player, board = monopoly_board)
+                        player.die1 += 1
+                    else:
+                        print(f"{player.name} did not roll doubles.")
+                        if chance.jailbreak["owner"] == player or community_chest.jailbreak["owner"] == player:
+                            print(f"Would you like to use your Get Out of Jail Free card to leave Jail?")
+                            response = str(input()).title()
+                            while response != 'Yes' and response != 'No':
+                                print("Please enter Yes or No.")
+                                response = str(input()).title()
+                            if response == "Yes":
+                                try:
+                                    chance.jailbreak["owner"] = "None"
+                                    chance.card_list.append(chance.jailbreak)
+                                except:
+                                    community_chest.jailbreak["owner"] = "None"
+                                    community_chest.card_list.append(community_chest.jailbreak)
+                                player.in_jail = False
+                                player.jail_time = 0
+                                monopoly_board.update_position(player, roll1, roll2, movement)
+                                current_position = monopoly_board.player_positions[monopoly_board.player_list.index(player)]
+                                print(f"{player.name} landed on space {current_position}, {monopoly_board.layout[current_position].name}.")
+                                monopoly_board.layout[current_position].interact(player = player, board = monopoly_board)
+                            elif response == "No":
+                                player.jail_time += 1
+                        else:
+                            player.jail_time += 1
+            else:
+                print(f"{player.name} is in Jail. Press enter to roll dice.")
+                input()
+                roll1, roll2, movement = player.roll_dice()
+                if roll1 != roll2:
+                    if chance.jailbreak["owner"] == player or community_chest.jailbreak["owner"] == player:
+                        print(f"Would you like to use your Get Out of Jail Free card to leave Jail?")
+                        response = str(input()).title()
+                        while response != 'Yes' and response != 'No':
+                            print("Please enter Yes or No.")
+                            response = str(input()).title()
+                        if response == "Yes":
+                            try:
+                                chance.jailbreak["owner"] = "None"
+                                chance.card_list.append(chance.jailbreak)
+                            except:
+                                community_chest.jailbreak["owner"] = "None"
+                                community_chest.card_list.append(community_chest.jailbreak)
+                    else:
+                        print(f"{player.name} must pay $50 to leave Jail.")
+                        player.money -= 50
+                    player.in_jail = False
+                    player.jail_time = 0
+                    monopoly_board.update_position(player, roll1, roll2, movement)
+                    current_position = monopoly_board.player_positions[monopoly_board.player_list.index(player)]
+                    print(f"{player.name} landed on space {current_position}, {monopoly_board.layout[current_position].name}.")
+                    monopoly_board.layout[current_position].interact(player = player, board = monopoly_board)
+
+
+# Non-Jail Interactions
+        else:
+            print(f"{player.name}'s turn! Press enter to roll dice.")
+        while (player.die1 == player.die2 and not player.in_jail):
             input()
             roll1, roll2, movement = player.roll_dice()
             turn_count += 1
@@ -569,4 +819,3 @@ while game_active:
             break
         print("Please enter Yes or No.")
         choice = str(input()).title()
-
